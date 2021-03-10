@@ -1,3 +1,10 @@
+/*
+http://vlad.finance/
+https://t.me/VladFinanceOfficial
+https://vlad-finance.medium.com/
+https://twitter.com/VladFinance
+*/
+
 // SPDX-License-Identifier: MIT
 
 // COPIED FROM https://github.com/compound-finance/compound-protocol/blob/master/contracts/Governance/GovernorAlpha.sol

@@ -1,3 +1,10 @@
+/*
+http://vlad.finance/
+https://t.me/VladFinanceOfficial
+https://vlad-finance.medium.com/
+https://twitter.com/VladFinance
+*/
+
 // SPDX-License-Identifier: MIT
 
 pragma solidity 0.6.12;

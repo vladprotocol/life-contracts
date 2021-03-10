@@ -1,3 +1,9 @@
+/*
+http://vlad.finance/
+https://t.me/VladFinanceOfficial
+https://vlad-finance.medium.com/
+https://twitter.com/VladFinance
+*/
 pragma solidity 0.6.12;
 
 import "./libs/BEP20.sol";
