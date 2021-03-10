@@ -1,12 +1,26 @@
-# Goose Finance
+# Vlad Finance
 
-https://goosedefi.com Feel free to read the code. More details coming soon.
+https://vlad.finance 
+
+https://t.me/VladFinanceOfficial
+
+https://vlad-finance.medium.com/
+
+https://twitter.com/VladFinance
+
 
 ## Deployed Contracts / Hash
 
 ### BSCMAINNET
 
-- EggToken - https://bscscan.com/token/0xf952fc3ca7325cc27d15885d37117676d25bfda6
-- MasterChef - https://bscscan.com/address/0xe70E9185F5ea7Ba3C5d63705784D8563017f2E57
-- Timelock - https://bscscan.com/address/0x2Ef488DE034567e9B8D312928fD52812A242aB3A
-- MultiCall - https://bscscan.com/address/0x1ee38d535d541c55c9dae27b12edf090c608e6fb
+LP token to farm Life:
+
+- VladToken - https://bscscan.com/token/0x279d41f3f78fe5c1f0ba41ae963d6e545113c973
+  
+- Buy Vlad: https://exchange.pancakeswap.finance/#/swap?outputCurrency=0x279d41f3f78fe5c1f0ba41ae963d6e545113c973 
+  
+
+- LifeToken - https://bscscan.com/token/0x0
+- MasterChef - https://bscscan.com/address/0x0
+- Timelock - https://bscscan.com/address/0x0
+- MultiCall - https://bscscan.com/address/0x0
