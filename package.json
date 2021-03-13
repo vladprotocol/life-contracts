@@ -7,7 +7,7 @@
     "testnet": "truffle migrate --network testnet --reset && truffle run verify LifeToken MasterChefV2 --network testnet",
     "testnet-vlad": "truffle migrate --f 3 --to 3 --network testnet --reset && truffle run verify VladToken --network testnet",
     "mainnet": "truffle migrate --network mainnet --reset && truffle run verify LifeToken MasterChefV2 --network mainnet",
-    "test": "truffle test test/token.test.js --network dev --show-events --stacktrace --bail",
+    "test": "truffle test test/pool.test.js --network dev --bail",
     "live": "nodemon --exec yarn test -e sol,js"
   },
   "devDependencies": {

@@ -47,11 +47,12 @@ contract MasterChefV2 is Ownable, ReentrancyGuard {
 
     // Info of each pool.
     struct PoolInfo {
-        IBEP20 lpToken;           // Address of LP token contract.
-        uint256 allocPoint;       // How many allocation points assigned to this pool. LIFEs to distribute per block.
-        uint256 lastRewardBlock;  // Last block number that LIFEs distribution occurs.
-        uint256 accLifePerShare;   // Accumulated LIFEs per share, times 1e12. See below.
-        uint16 depositFeeBP;      // Deposit fee in basis points
+        IBEP20 lpToken;             // Address of LP token contract.
+        uint256 allocPoint;         // How many allocation points assigned to this pool. LIFEs to distribute per block.
+        uint256 lastRewardBlock;    // Last block number that LIFEs distribution occurs.
+        uint256 accLifePerShare;    // Accumulated LIFEs per share, times 1e12. See below.
+        uint16 depositFeeBP;        // Deposit fee in basis points
+        uint256 depositMax;         // Max Deposit amount allowed
     }
 
     // The LIFE TOKEN!
@@ -106,7 +107,7 @@ contract MasterChefV2 is Ownable, ReentrancyGuard {
     }
 
     // Add a new lp to the pool. Can only be called by the owner.
-    function add(uint256 _allocPoint, IBEP20 _lpToken, uint16 _depositFeeBP, bool _withUpdate) public onlyOwner nonDuplicated(_lpToken) {
+    function add(uint256 _allocPoint, IBEP20 _lpToken, uint16 _depositFeeBP, uint256 _depositMax, bool _withUpdate) public onlyOwner nonDuplicated(_lpToken) {
         require(_depositFeeBP <= 10000, "add: invalid deposit fee basis points");
         if (_withUpdate) {
             massUpdatePools();
@@ -119,12 +120,13 @@ contract MasterChefV2 is Ownable, ReentrancyGuard {
         allocPoint : _allocPoint,
         lastRewardBlock : lastRewardBlock,
         accLifePerShare : 0,
-        depositFeeBP : _depositFeeBP
+        depositFeeBP : _depositFeeBP,
+        depositMax : _depositMax
         }));
     }
 
     // Update the given pool's LIFE allocation point and deposit fee. Can only be called by the owner.
-    function set(uint256 _pid, uint256 _allocPoint, uint16 _depositFeeBP, bool _withUpdate) public onlyOwner {
+    function set(uint256 _pid, uint256 _allocPoint, uint16 _depositFeeBP, uint256 _depositMax, bool _withUpdate) public onlyOwner {
         require(_depositFeeBP <= 10000, "set: invalid deposit fee basis points");
         if (_withUpdate) {
             massUpdatePools();
@@ -132,6 +134,7 @@ contract MasterChefV2 is Ownable, ReentrancyGuard {
         totalAllocPoint = totalAllocPoint.sub(poolInfo[_pid].allocPoint).add(_allocPoint);
         poolInfo[_pid].allocPoint = _allocPoint;
         poolInfo[_pid].depositFeeBP = _depositFeeBP;
+        poolInfo[_pid].depositMax = _depositMax;
     }
 
     // Return reward multiplier over the given _from to _to block.
@@ -191,6 +194,19 @@ contract MasterChefV2 is Ownable, ReentrancyGuard {
                 safeLifeTransfer(msg.sender, pending);
             }
         }
+
+        if( pool.depositMax > 0){
+            if( _amount > pool.depositMax){
+                // truncate the max allowed first
+                _amount = pool.depositMax;
+            }
+
+            if( _amount.add(user.amount) > pool.depositMax ){
+                // deduct any deposited amount
+                _amount = pool.depositMax.sub(user.amount);
+            }
+        }
+
         if (_amount > 0) {
             pool.lpToken.safeTransferFrom(address(msg.sender), address(this), _amount);
             if (pool.depositFeeBP > 0) {
@@ -199,6 +215,12 @@ contract MasterChefV2 is Ownable, ReentrancyGuard {
                 user.amount = user.amount.add(_amount).sub(depositFee);
             } else {
                 user.amount = user.amount.add(_amount);
+            }
+
+            if( pool.depositMax > 0 ){
+                // extra check to be sure
+                require( user.amount <= pool.depositMax ,
+                    "max staked limit reached");
             }
         }
         user.rewardDebt = user.amount.mul(pool.accLifePerShare).div(1e12);
@@ -261,6 +283,8 @@ contract MasterChefV2 is Ownable, ReentrancyGuard {
 
     //Pancake has to add hidden dummy pools inorder to alter the emission, here we make it simple and transparent to all.
     function updateEmissionRate(uint256 _lifePerBlock) public onlyOwner {
+        require(_lifePerBlock>0,"emision must be>0");
+        require(lifePerBlock > _lifePerBlock,"emision must be new<current");
         massUpdatePools();
         lifePerBlock = _lifePerBlock;
         emit UpdateEmissionRate(msg.sender, _lifePerBlock);
