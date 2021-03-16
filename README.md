@@ -28,7 +28,7 @@ LP token to farm Life:
 
 ### BSCTESTNET
 
-- LifeToken - https://testnet.bscscan.com/address/0x0709f0f5450eb39Fbb1CA729c47151158e9484Dd#code
-- MasterChef - https://testnet.bscscan.com/address/0xF6B8e7d418fD71BB5EC932F239eC4Ff9a3273018#code
+- LifeToken - https://testnet.bscscan.com/address/0xADA2270B0CB5b6254d3d48A6fEE55b72693B746A#code
+- MasterChef - https://testnet.bscscan.com/address/0xE37Aa693d2Ab77721E11e55bfBC723cf4457b78E#code
 - VladToken - https://testnet.bscscan.com/address/0x5Ef22E12B661de51c4f103ed607AA30FFEf7ed09#code
   (for test only)
