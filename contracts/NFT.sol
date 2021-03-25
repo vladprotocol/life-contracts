@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: UNLICENSED
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./libs/IBEP20.sol";
 import "./libs/SafeBEP20.sol";
@@ -16,7 +17,7 @@ contract NFT is ERC721, Ownable {
     Counters.Counter private _tokenIds;
     mapping(uint256 => uint8) private nftIds;
     mapping(uint8 => string) private nftNames;
-    constructor(string memory _baseURI) public ERC721("Coffin", "COFFIN") {
+    constructor(string memory _baseURI) public ERC721("VladNFT", "VNFT") {
         minters[ msg.sender ] = true;
         _setBaseURI(_baseURI);
     }

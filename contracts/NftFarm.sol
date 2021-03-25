@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: UNLICENSED
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -18,8 +19,11 @@ contract NftFarm is Ownable {
     NFT public nft;
     IBEP20 public token;
 
-    mapping(uint256 => bool) public hasClaimed;
-    mapping(uint256 => address) public onwerById;
+    uint8[] public minted;
+    mapping(uint256 => uint256) public hasClaimed;
+    mapping(uint8 => address[] ) public owners;
+    mapping(uint8 => address ) public lastOwner;
+
     uint256 public startBlockNumber;
     uint256 public endBlockNumber;
     uint256 public countBurnt;
@@ -31,7 +35,9 @@ contract NftFarm is Ownable {
     mapping(uint8 => string) public nftIdURIs;
     uint8 public numberOfNftIds;
 
-    event NftMint(address indexed to, uint256 indexed tokenId, uint8 indexed nftId);
+    bool allowMultipleClaims; // on marketplace bootstrap and not changeable anymore.
+
+    event NftMint(address indexed to, uint256 indexed tokenId, uint8 indexed nftId, uint256 amount);
     event NftBurn(address indexed from, uint256 indexed tokenId);
 
     constructor(
@@ -41,7 +47,8 @@ contract NftFarm is Ownable {
         uint256 _tokenPerBurn,
         string memory _baseURI,
         string memory _ipfsHash,
-        uint256 _endBlockNumber
+        uint256 _endBlockNumber,
+        bool _allowMultipleClaims
     ) public {
         nft = _nft;
         token = _token;
@@ -50,51 +57,68 @@ contract NftFarm is Ownable {
         baseURI = _baseURI;
         ipfsHash = _ipfsHash;
         endBlockNumber = _endBlockNumber;
-
+        allowMultipleClaims = _allowMultipleClaims;
     }
+    function getMinted() external view returns (uint8[] memory, uint256[] memory){
+        uint256 length = minted.length;
+        uint256[] memory mintedAmounts = new uint256[](length);
+        for (uint256 index = 0; index < length; ++index) {
+            uint256 amount = hasClaimed[index];
+            mintedAmounts[index] = amount;
+        }
+        return (minted, mintedAmounts);
+    }
+
     function mintNFT(uint8 _nftId) external {
-        require(hasClaimed[_nftId] == false, "Has claimed");
-        require(currentDistributedSupply < totalSupplyDistributed, "Nothing left");
-        require( startBlockNumber == 0 || block.number > startBlockNumber, "too early");
-        token.safeTransferFrom(address(msg.sender), address(this), tokenPerBurn);
-        hasClaimed[_nftId] = true;
-        onwerById[_nftId] = msg.sender;
+        require(allowMultipleClaims == true || hasClaimed[_nftId] == 0, "Has claimed");
+        require(currentDistributedSupply == 0 || currentDistributedSupply < totalSupplyDistributed, "Nothing left");
+        require(startBlockNumber == 0 || block.number > startBlockNumber, "Too early");
+        require(endBlockNumber == 0 || block.number < endBlockNumber, "Too late");
+
+        if( hasClaimed[_nftId] == 0 ){
+            minted.push(_nftId);
+        }
+        hasClaimed[_nftId] = hasClaimed[_nftId].add(1);
+        lastOwner[_nftId] = msg.sender;
+
+        uint256 total = owners[_nftId].length;
+        owners[_nftId][total] = msg.sender;
+
         currentDistributedSupply = currentDistributedSupply.add(1);
 
-        // ipfs:// QmWB5xPBcFRn8qR4uu1VHt1k9vUrxvbezYv3jDC7WD29ie / 1 .json
-        // uint256 tokenId = nft.mint(address(msg.sender), tokenURI, _nftId);
         string memory tokenURI = string(abi.encodePacked(ipfsHash, "/", _nftId, ".json"));
+        nftIdURIs[_nftId] = tokenURI;
         uint256 tokenId = nft.mint(address(msg.sender), tokenURI, _nftId);
 
-        emit NftMint(msg.sender, tokenId, _nftId);
-    }
-    function burnNFT(uint256 _tokenId) external {
-        require(nft.ownerOf(_tokenId) == msg.sender, "Not the owner");
-        require( endBlockNumber == 0 || block.number < endBlockNumber, "too late");
-        nft.burn(_tokenId);
-        countBurnt = countBurnt.add(1);
-        token.safeTransfer(address(msg.sender), tokenPerBurn);
-        emit NftBurn(msg.sender, _tokenId);
+        token.safeTransferFrom(address(msg.sender), address(this), tokenPerBurn);
+        emit NftMint(msg.sender, tokenId, _nftId, hasClaimed[_nftId] );
     }
 
-    function adminSetInterval( uint256 _start, uint256 _end ) external onlyOwner {
+    function adminSetInterval(uint256 _start, uint256 _end) external onlyOwner {
         startBlockNumber = _start;
         endBlockNumber = _end;
     }
+
     function adminWithdrawToken(uint256 _amount) external onlyOwner {
-        // comes from bunny: alow withdraw of tokens? need to discus with team
+        // only after the marketplace is closed
+        require(endBlockNumber == 0 || block.number > endBlockNumber, "Marketplace is open.");
+        // comes from bunny: allow token withdraw? need to discus with team.
         token.safeTransfer(address(msg.sender), _amount);
     }
+
     function adminChangeToken(address _token) external onlyOwner {
-        require( _token != address(0x0), "invalid address" );
+        require(_token != address(0x0), "invalid address");
         token = IBEP20(_token);
     }
+
     function adminSetTotalSupply(uint256 _totalSupplyDistributed) external onlyOwner {
         totalSupplyDistributed = _totalSupplyDistributed;
     }
+
     function adminSetTokenPerBurn(uint256 _tokenPerBurn) external onlyOwner {
         tokenPerBurn = _tokenPerBurn;
     }
+
     function adminSetBaseURI(string memory _baseURI) external onlyOwner {
         baseURI = _baseURI;
         nft.changeBaseURI(_baseURI);
