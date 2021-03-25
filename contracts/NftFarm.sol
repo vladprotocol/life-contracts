@@ -22,7 +22,7 @@ contract NftFarm is Ownable {
     uint8[] public minted;
     mapping(uint256 => uint256) public hasClaimed;
     mapping(uint8 => address[] ) public owners;
-    mapping(uint8 => address ) public lastOwner;
+    mapping(uint8 => address ) public lastOwners;
 
     uint256 public startBlockNumber;
     uint256 public endBlockNumber;
@@ -59,14 +59,17 @@ contract NftFarm is Ownable {
         endBlockNumber = _endBlockNumber;
         allowMultipleClaims = _allowMultipleClaims;
     }
-    function getMinted() external view returns (uint8[] memory, uint256[] memory){
+    function getMinted() external view returns
+    (uint8[] memory, uint256[] memory, address[] memory){
         uint256 length = minted.length;
         uint256[] memory mintedAmounts = new uint256[](length);
+        address[] memory lastOwner = new address[](length);
         for (uint256 index = 0; index < length; ++index) {
-            uint256 amount = hasClaimed[index];
-            mintedAmounts[index] = amount;
+            uint8 nftId = minted[index];
+            mintedAmounts[index] = hasClaimed[nftId];
+            lastOwner[index] = lastOwners[nftId];
         }
-        return (minted, mintedAmounts);
+        return (minted, mintedAmounts, lastOwner);
     }
 
     function mintNFT(uint8 _nftId) external {
@@ -79,7 +82,7 @@ contract NftFarm is Ownable {
             minted.push(_nftId);
         }
         hasClaimed[_nftId] = hasClaimed[_nftId].add(1);
-        lastOwner[_nftId] = msg.sender;
+        lastOwners[_nftId] = msg.sender;
 
         uint256 total = owners[_nftId].length;
         owners[_nftId][total] = msg.sender;
