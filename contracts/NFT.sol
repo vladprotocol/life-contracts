@@ -46,10 +46,10 @@ contract NFT is ERC721, Ownable {
         nftBurnCount[nftIdBurnt] = nftBurnCount[nftIdBurnt].add(1);
         _burn(_tokenId);
     }
-    function setNftName(uint8 _nftId, string calldata _name) external onlyOwner {
+    function setNftName(uint8 _nftId, string calldata _name) external onlyMinters {
         nftNames[_nftId] = _name;
     }
-    function changeBaseURI(string memory _baseURI) external onlyOwner {
+    function changeBaseURI(string memory _baseURI) external onlyMinters {
         _setBaseURI(_baseURI);
     }
     function manageMinters( address _minter, bool _status) external onlyOwner {

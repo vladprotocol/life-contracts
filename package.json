@@ -10,7 +10,9 @@
     "testnet-vlad": "truffle migrate --f 3 --to 3 --network testnet --reset && truffle run verify VladToken --network testnet",
     "mainnet": "truffle migrate --network mainnet --reset && truffle run verify LifeToken MasterChefV2 --network mainnet",
     "test": "truffle test test/pool.test.js --network dev --bail",
-    "live": "nodemon --exec yarn test -e sol,js"
+    "test-nft": "truffle test test/NftMinting.test.js --show-events --network dev --bail",
+    "live": "nodemon --exec yarn test -e sol,js",
+    "live-nft": "nodemon --exec yarn test-nft -e sol,js"
   },
   "devDependencies": {
     "@openzeppelin/contracts": "^3.1.0",

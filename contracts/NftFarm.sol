@@ -20,24 +20,41 @@ contract NftFarm is Ownable {
     IBEP20 public token;
 
     uint8[] public minted;
-    mapping(uint256 => uint256) public hasClaimed;
-    mapping(uint8 => address[] ) public owners;
+    mapping(uint8 => uint256) public hasClaimed;
+    mapping(uint8 => address[] ) public ownersOf;
     mapping(uint8 => address ) public lastOwners;
 
     uint256 public startBlockNumber;
     uint256 public endBlockNumber;
     uint256 public countBurnt;
     uint256 public tokenPerBurn;
-    uint256 public currentDistributedSupply;
-    uint256 public totalSupplyDistributed;
+    uint256 public currentDistributedSupply; // test ok
+    uint256 public totalSupplyDistributed; // test ok
     string public baseURI;
     string public ipfsHash;
-    mapping(uint8 => string) public nftIdURIs;
+    string public rarity;
+    mapping(uint8 => string) public nftIdURIs; // test ok
     uint8 public numberOfNftIds;
 
-    bool allowMultipleClaims; // on marketplace bootstrap and not changeable anymore.
+    // on marketplace bootstrap and not changeable anymore.
+    bool allowMultipleClaims; // test ok
 
-    event NftMint(address indexed to, uint256 indexed tokenId, uint8 indexed nftId, uint256 amount);
+    // price management
+    mapping(uint8 => uint256) price_by_nftId; // test ok
+
+    // for multipe minting
+    uint256 priceMultiplier; // test ok
+
+    // minting and management
+
+    // can manage price and limits
+    mapping(address => bool) mintingManager;
+    mapping(uint8 => uint256) mint_by_nftId; // test ok
+
+    // set the max minting per nft
+    uint256 maxMintPerNft; // test ok
+
+    event NftMint(address indexed to, uint256 indexed tokenId, uint8 indexed nftId, uint256 amount, uint256 price);
     event NftBurn(address indexed from, uint256 indexed tokenId);
 
     constructor(
@@ -48,7 +65,10 @@ contract NftFarm is Ownable {
         string memory _baseURI,
         string memory _ipfsHash,
         uint256 _endBlockNumber,
-        bool _allowMultipleClaims
+        bool _allowMultipleClaims,
+        string memory _rarity,
+        uint256 _maxMintPerNft,
+        uint256 _priceMultiplier
     ) public {
         nft = _nft;
         token = _token;
@@ -58,43 +78,75 @@ contract NftFarm is Ownable {
         ipfsHash = _ipfsHash;
         endBlockNumber = _endBlockNumber;
         allowMultipleClaims = _allowMultipleClaims;
+        rarity = _rarity;
+        maxMintPerNft = _maxMintPerNft;
+        mintingManager[msg.sender] = true;
+        priceMultiplier = _priceMultiplier;
     }
+
+    function getOwnersOf( uint8 _nftId ) external view returns (address[] memory){
+        return ownersOf[_nftId];
+    }
+    function getClaimedAmount( uint8 _nftId ) external view returns (uint256){
+        return hasClaimed[_nftId];
+    }
+
     function getMinted() external view returns
-    (uint8[] memory, uint256[] memory, address[] memory){
+    (uint8[] memory, uint256[] memory, address[] memory, uint256[] memory, uint256[] memory){
         uint256 length = minted.length;
         uint256[] memory mintedAmounts = new uint256[](length);
         address[] memory lastOwner = new address[](length);
+        uint256[] memory maxMintByNft = new uint256[](length);
+        uint256[] memory prices = new uint256[](length);
         for (uint256 index = 0; index < length; ++index) {
             uint8 nftId = minted[index];
             mintedAmounts[index] = hasClaimed[nftId];
             lastOwner[index] = lastOwners[nftId];
+            maxMintByNft[index] = mint_by_nftId[nftId];
+            prices[index] = getPrice(nftId);
         }
-        return (minted, mintedAmounts, lastOwner);
+        return (minted, mintedAmounts, lastOwner, maxMintByNft, prices);
     }
 
     function mintNFT(uint8 _nftId) external {
+
         require(allowMultipleClaims == true || hasClaimed[_nftId] == 0, "Has claimed");
-        require(currentDistributedSupply == 0 || currentDistributedSupply < totalSupplyDistributed, "Nothing left");
+
         require(startBlockNumber == 0 || block.number > startBlockNumber, "Too early");
         require(endBlockNumber == 0 || block.number < endBlockNumber, "Too late");
 
         if( hasClaimed[_nftId] == 0 ){
+
+            // here we control collections
+            require(totalSupplyDistributed == 0 || currentDistributedSupply < totalSupplyDistributed, "Nothing left");
+            currentDistributedSupply = currentDistributedSupply.add(1);
+
             minted.push(_nftId);
+            nft.setNftName(_nftId, rarity);
+
         }
+
         hasClaimed[_nftId] = hasClaimed[_nftId].add(1);
         lastOwners[_nftId] = msg.sender;
 
-        uint256 total = owners[_nftId].length;
-        owners[_nftId][total] = msg.sender;
+        require( maxMintPerNft==0 || hasClaimed[_nftId] <= maxMintPerNft, "Max minting reached");
 
-        currentDistributedSupply = currentDistributedSupply.add(1);
+        require( mint_by_nftId[_nftId] == 0 ||
+                 hasClaimed[_nftId] <= mint_by_nftId[_nftId],
+                 "Max minting by NFT reached");
 
-        string memory tokenURI = string(abi.encodePacked(ipfsHash, "/", _nftId, ".json"));
+        address[] storage _ownersOf = ownersOf[_nftId];
+        _ownersOf.push( msg.sender );
+
+
+
+        string memory tokenURI = string(abi.encodePacked(ipfsHash, "/", itod(_nftId), ".json"));
         nftIdURIs[_nftId] = tokenURI;
         uint256 tokenId = nft.mint(address(msg.sender), tokenURI, _nftId);
 
-        token.safeTransferFrom(address(msg.sender), address(this), tokenPerBurn);
-        emit NftMint(msg.sender, tokenId, _nftId, hasClaimed[_nftId] );
+        uint256 price = getPrice(_nftId);
+        token.safeTransferFrom(address(msg.sender), address(this), price);
+        emit NftMint(msg.sender, tokenId, _nftId, hasClaimed[_nftId], price );
     }
 
     function adminSetInterval(uint256 _start, uint256 _end) external onlyOwner {
@@ -127,5 +179,70 @@ contract NftFarm is Ownable {
         nft.changeBaseURI(_baseURI);
     }
 
+    function itod(uint256 x) private pure returns (string memory) {
+        if (x > 0) {
+            string memory str;
+            while (x > 0) {
+                str = string(abi.encodePacked(uint8(x % 10 + 48), str));
+                x /= 10;
+            }
+            return str;
+        }
+        return "0";
+    }
 
+
+    function getPrice( uint8 _nftId ) public view returns (uint256){
+
+        // default: return the global price
+        uint256 price = tokenPerBurn;
+
+        // check if we have a price for this nft
+        if( price_by_nftId[_nftId] > 0 ){
+            price = price_by_nftId[_nftId];
+        }
+
+        // do we have a price multipler for multiple mintings?
+        if( priceMultiplier > 0 && hasClaimed[_nftId] > 0 ){
+            uint256 mintedAmount = hasClaimed[_nftId];
+            price = price.mul(mintedAmount).mul(priceMultiplier);
+        }
+
+        return price;
+    }
+
+    // set the price for a specific nft
+    function adminSetPriceByNftId(uint8 _nftId, uint256 _price) external mintingManagers {
+        price_by_nftId[_nftId] = _price;
+    }
+
+    // set the max minting for a specific nft
+    function adminSetMaxMintByNftId(uint8 _nftId, uint256 _maxAllowed) external mintingManagers {
+        mint_by_nftId[_nftId] = _maxAllowed;
+    }
+
+    // manage nft emission
+    function adminSetMintingManager(address _manager, bool _status) external onlyOwner {
+        mintingManager[_manager] = _status;
+    }
+
+    // manage the price multiplier by mint
+    function adminSetMultiplier(uint256 _priceMultiplier) external onlyOwner {
+        priceMultiplier = _priceMultiplier;
+    }
+
+    // manage the price multiplier by mint
+    function adminSetAllowMultipleClaims(bool _status) external onlyOwner {
+        allowMultipleClaims = _status;
+    }
+
+    // manage the price multiplier by mint
+    function adminSetMaxMintPerNft(uint256 _max) external onlyOwner {
+        maxMintPerNft = _max;
+    }
+
+    modifier mintingManagers(){
+        require(mintingManager[_msgSender()] == true, "Managers: not a manager");
+        _;
+    }
 }
