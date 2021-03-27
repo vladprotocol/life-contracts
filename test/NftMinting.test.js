@@ -14,7 +14,7 @@ const ipfsHash = 'QmWB5xPBcFRn8qR4uu1VHt1k9vUrxvbezYv3jDC7WD29ie';
 
 const supply = web3.utils.toWei('6666');
 const totalSupplyDistributed = '6666';
-const price = '666';
+const price = '66';
 const lifePerBurn = web3.utils.toWei(price);
 const startBlock = 0;
 const endBlockNumber = 0;
@@ -24,13 +24,16 @@ const rarity = "Common";
 const maxMintPerNft = '666';
 const priceMultiplier = '0';
 
+const min_interval = 0;
+const max_interval = 3;
+
 describe('NftMinting', function () {
     beforeEach(async function () {
         _deployer = accounts[0];
         _user = accounts[1];
 
         this.Token = await Token.new({from: _deployer});
-        this.Token.mint(_deployer, supply, {from: _deployer});
+        await this.Token.mint(_deployer, supply, {from: _deployer});
         this.NFT = await NFT.new(baseURI, {from: _deployer});
 
 
@@ -46,6 +49,7 @@ describe('NftMinting', function () {
             rarity,
             maxMintPerNft,
             priceMultiplier,
+            min_interval, max_interval,
             {from: _deployer});
 
         await this.NFT.manageMinters(this.NftFarm.address, true, {from: _deployer});
@@ -72,7 +76,7 @@ describe('NftMinting', function () {
             const getClaimedAmount = await this.NftFarm.getClaimedAmount(nftId, {from: _deployer});
             expect(getClaimedAmount.toString()).to.be.equal('1');
 
-            const getMinted = await this.NftFarm.getMinted({from: _deployer});
+            const getMinted = await this.NftFarm.getMinted(_deployer, {from: _deployer});
 
             // nftId 0 at index 0
             expect(getMinted[0][0].toString()).to.be.equal('0');
@@ -103,7 +107,7 @@ describe('NftMinting', function () {
             const getClaimedAmount = await this.NftFarm.getClaimedAmount(nftId, {from: _deployer});
             expect(getClaimedAmount.toString()).to.be.equal('1');
 
-            const getMinted = await this.NftFarm.getMinted({from: _deployer});
+            const getMinted = await this.NftFarm.getMinted(_deployer, {from: _deployer});
 
             // nftId 0 at index 0
             expect(getMinted[0][0].toString()).to.be.equal('0');
@@ -185,12 +189,14 @@ describe('NftMinting', function () {
             await this.Token.approve(this.NftFarm.address, supply, {from: _deployer});
             await this.NftFarm.mintNFT(nftId, {from: _deployer});
             const getPrice1 = await this.NftFarm.getPrice(nftId, {from: _user});
-            const total = web3.utils.toWei('1332'); // 666*1*2
+            const total = web3.utils.toWei('132'); // 66*1*2
             expect(getPrice1).to.be.bignumber.equal(total);
         });
 
 
     });
+
+
 
 
     describe('NFT MINTING LIMITS', function () {
@@ -211,7 +217,8 @@ describe('NftMinting', function () {
         it('TEST maxMintPerNft=3', async function () {
             const nftId = 0;
 
-            await this.NftFarm.adminSetMaxMintPerNft(3, {from: _deployer});
+
+            await this.NftFarm.adminSetMaxMintPerNft('3', {from: _deployer});
 
             await this.Token.approve(this.NftFarm.address, supply, {from: _deployer});
 
@@ -263,6 +270,34 @@ describe('NftMinting', function () {
             await expectRevert(this.NftFarm.adminSetInterval(0, 0, {from: _user}), 'Ownable: caller is not the owner');
             await this.NftFarm.adminSetInterval(0, 0, {from: _deployer});
         });
+        it('adminSetPriceByNftId', async function () {
+            await expectRevert(this.NftFarm.adminSetPriceByNftId(0, 1, {from: _user}), 'Managers: not a manager');
+            await this.NftFarm.adminSetPriceByNftId(0, 1, {from: _deployer});
+        });
+        it('adminSetInterval', async function () {
+            await expectRevert(this.NftFarm.adminSetMintingInterval(0, 1, {from: _user}), 'Ownable: caller is not the owner');
+            await this.NftFarm.adminSetMintingInterval(0, 1, {from: _deployer});
+        });
+        it('adminSetMaxMintByNftId', async function () {
+            await expectRevert(this.NftFarm.adminSetMaxMintByNftId(0, '1', {from: _user}), 'Managers: not a manager');
+            await this.NftFarm.adminSetMaxMintByNftId(0, '1', {from: _deployer});
+        });
+        it('adminSetMaxMintPerNft', async function () {
+            await expectRevert(this.NftFarm.adminSetMaxMintPerNft(1, {from: _user}), 'Ownable: caller is not the owner');
+            await this.NftFarm.adminSetMaxMintPerNft(1, {from: _deployer});
+        });
+        it('adminSetMultiplier', async function () {
+            await expectRevert(this.NftFarm.adminSetMultiplier(1, {from: _user}), 'Ownable: caller is not the owner');
+            await this.NftFarm.adminSetMultiplier(1, {from: _deployer});
+        });
+        it('adminSetMintingManager', async function () {
+            await expectRevert(this.NftFarm.adminSetMintingManager(_user, true, {from: _user}), 'Ownable: caller is not the owner');
+            await this.NftFarm.adminSetMintingManager(_user, true, {from: _deployer});
+        });
+        it('adminSetAllowMultipleClaims', async function () {
+            await expectRevert(this.NftFarm.adminSetAllowMultipleClaims(true, {from: _user}), 'Ownable: caller is not the owner');
+            await this.NftFarm.adminSetAllowMultipleClaims(true, {from: _deployer});
+        });
         it('adminChangeToken', async function () {
             await expectRevert(this.NftFarm.adminChangeToken(this.Token.address, {from: _user}), 'Ownable: caller is not the owner');
             await this.NftFarm.adminChangeToken(this.Token.address, {from: _deployer});
@@ -281,6 +316,83 @@ describe('NftMinting', function () {
             await expectRevert(this.NftFarm.adminSetBaseURI(baseURI, {from: _user}), 'Ownable: caller is not the owner');
             const owner = await this.NftFarm.owner();
             await this.NftFarm.adminSetBaseURI(baseURI, {from: _deployer});
+        });
+    });
+
+
+    describe('NFT MINTING INFO AND COUNTS', function () {
+        it('TEST getMinted INFO', async function () {
+            await this.NftFarm.adminSetMaxMintPerNft(3, {from: _deployer});
+
+            await this.Token.approve(this.NftFarm.address, supply, {from: _deployer});
+
+            await this.NftFarm.mintNFT(0, {from: _deployer});
+            await this.NftFarm.mintNFT(0, {from: _deployer});
+            await this.NftFarm.mintNFT(0, {from: _deployer});
+            const getClaimedAmount = await this.NftFarm.getClaimedAmount(0, {from: _deployer});
+            expect(getClaimedAmount.toString()).to.be.bignumber.equal('3');
+            await expectRevert(this.NftFarm.mintNFT(0, {from: _deployer}), "Max minting reached");
+
+            const getMinted = await this.NftFarm.getMinted(_deployer, {from: _deployer});
+
+            const minted = getMinted[0];
+            const mintedAmounts = getMinted[1];
+            const lastOwner = getMinted[2];
+            const maxMintByNft = getMinted[3];
+            const prices = getMinted[4];
+            const myMints = getMinted[5];
+
+            expect(minted[0]).to.be.bignumber.equal('0');
+            expect(mintedAmounts[0]).to.be.bignumber.equal('3');
+            expect(lastOwner[0]).to.be.equal(_deployer);
+            expect(maxMintByNft[0]).to.be.bignumber.equal('3');
+            expect(prices[0]).to.be.bignumber.equal(web3.utils.toWei(price));
+            expect(myMints[0]).to.be.bignumber.equal('3');
+
+            const lifePerBurn10 = web3.utils.toWei('132');
+            await this.Token.mint(_user, supply, {from: _deployer});
+            await this.Token.approve(this.NftFarm.address, supply, {from: _user});
+
+            await this.NftFarm.mintNFT(1, {from: _user});
+            await this.NftFarm.mintNFT(1, {from: _user});
+
+
+            const getMinted_user = await this.NftFarm.getMinted(_user, {from: _user});
+
+            const minted_user = getMinted_user[0];
+            const mintedAmounts_user = getMinted_user[1];
+            const lastOwner_user = getMinted_user[2];
+            const maxMintByNft_user = getMinted_user[3];
+            const prices_user = getMinted_user[4];
+            const myMints_user = getMinted_user[5];
+
+            expect(minted_user[1]).to.be.bignumber.equal('1');
+            expect(mintedAmounts_user[1]).to.be.bignumber.equal('2');
+            expect(lastOwner_user[1]).to.be.equal(_user);
+            expect(maxMintByNft_user[1]).to.be.bignumber.equal('3');
+            expect(prices_user[1]).to.be.bignumber.equal(web3.utils.toWei(price));
+            expect(myMints_user[1]).to.be.bignumber.equal('2');
+
+            // console.log('minted', minted_user);
+            // console.log('mintedAmounts', mintedAmounts_user);
+            // console.log('lastOwner', lastOwner_user);
+            // console.log('maxMintByNft', maxMintByNft_user);
+            // console.log('prices', prices_user);
+
+        });
+    });
+    describe('NFT MINTING INTERVAL', function () {
+        it('TEST MINTING LIMITS', async function () {
+            await this.NftFarm.adminSetMaxMintPerNft(3, {from: _deployer});
+            await this.NftFarm.adminSetMintingInterval(0, 3, {from: _deployer});
+
+            await this.Token.approve(this.NftFarm.address, supply, {from: _deployer});
+
+            await this.NftFarm.mintNFT(0, {from: _deployer});
+            await this.NftFarm.mintNFT(1, {from: _deployer});
+            await this.NftFarm.mintNFT(2, {from: _deployer});
+            await expectRevert(this.NftFarm.mintNFT(4, {from: _deployer}),"Out of minting interval");
+
         });
     });
 

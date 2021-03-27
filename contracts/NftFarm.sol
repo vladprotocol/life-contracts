@@ -54,6 +54,12 @@ contract NftFarm is Ownable {
     // set the max minting per nft
     uint256 public maxMintPerNft; // test ok
 
+    // burn LIFE
+    address BURN_LIFE;
+
+    uint8 public min_index;
+    uint8 public max_index;
+
     event NftMint(address indexed to, uint256 indexed tokenId, uint8 indexed nftId, uint256 amount, uint256 price);
     event NftBurn(address indexed from, uint256 indexed tokenId);
 
@@ -68,8 +74,11 @@ contract NftFarm is Ownable {
         bool _allowMultipleClaims,
         string memory _rarity,
         uint256 _maxMintPerNft,
-        uint256 _priceMultiplier
+        uint256 _priceMultiplier,
+        uint8 _min_index,
+        uint8 _max_index
     ) public {
+        BURN_LIFE = address(0x000000000000000000000000000000000000dEaD);
         nft = _nft;
         token = _token;
         totalSupplyDistributed = _totalSupplyDistributed;
@@ -82,6 +91,9 @@ contract NftFarm is Ownable {
         maxMintPerNft = _maxMintPerNft;
         mintingManager[msg.sender] = true;
         priceMultiplier = _priceMultiplier;
+
+        min_index = _min_index;
+        max_index = _max_index;
     }
 
     function getOwnersOf( uint8 _nftId ) external view returns (address[] memory){
@@ -91,21 +103,34 @@ contract NftFarm is Ownable {
         return hasClaimed[_nftId];
     }
 
-    function getMinted() external view returns
-    (uint8[] memory, uint256[] memory, address[] memory, uint256[] memory, uint256[] memory){
+    function getMinted( address _user ) external view returns
+    (uint8[] memory, uint256[] memory, address[] memory, uint256[] memory, uint256[] memory, uint256[] memory){
         uint256 length = minted.length;
         uint256[] memory mintedAmounts = new uint256[](length);
         address[] memory lastOwner = new address[](length);
         uint256[] memory maxMintByNft = new uint256[](length);
         uint256[] memory prices = new uint256[](length);
+        uint256[] memory myMints = new uint256[](length);
         for (uint256 index = 0; index < length; ++index) {
             uint8 nftId = minted[index];
             lastOwner[index] = lastOwners[nftId];
             maxMintByNft[index] = getMaxMint(nftId);
             prices[index] = getPrice(nftId);
             mintedAmounts[index] = hasClaimed[nftId];
+            myMints[index] = getMintsOf(_user, nftId);
         }
-        return (minted, mintedAmounts, lastOwner, maxMintByNft, prices);
+        return (minted, mintedAmounts, lastOwner, maxMintByNft, prices, myMints);
+    }
+    function getMintsOf( address user, uint8 _nftId ) public view returns (uint256) {
+        address[] storage _ownersOf = ownersOf[_nftId];
+        uint256 total = _ownersOf.length;
+        uint256 mints = 0;
+        for (uint256 index = 0; index < total; ++index) {
+            if( _ownersOf[index] == user ){
+                mints = mints.add(1);
+            }
+        }
+        return mints;
     }
     function getMaxMint( uint8 _nftId ) public view returns (uint256) {
         if( mint_by_nftId[_nftId] == 0 ){
@@ -114,6 +139,8 @@ contract NftFarm is Ownable {
         return mint_by_nftId[_nftId];
     }
     function mintNFT(uint8 _nftId) external {
+
+        require( _nftId >= min_index && _nftId <= max_index, "Out of minting interval");
 
         require(allowMultipleClaims == true || hasClaimed[_nftId] == 0, "Has claimed");
 
@@ -149,7 +176,8 @@ contract NftFarm is Ownable {
         uint256 tokenId = nft.mint(address(msg.sender), tokenURI, _nftId);
 
         uint256 price = getPrice(_nftId);
-        token.safeTransferFrom(address(msg.sender), address(this), price);
+        // send LIFE to DEAD address, effectively burning it.
+        token.safeTransferFrom(address(msg.sender), BURN_LIFE, price);
         emit NftMint(msg.sender, tokenId, _nftId, hasClaimed[_nftId], price );
     }
 
@@ -241,8 +269,14 @@ contract NftFarm is Ownable {
     }
 
     // manage the price multiplier by mint
-    function adminSetMaxMintPerNft(uint256 _max) external onlyOwner {
-        maxMintPerNft = _max;
+    function adminSetMaxMintPerNft(uint256 _maxMintPerNft) external onlyOwner {
+        maxMintPerNft = _maxMintPerNft;
+    }
+
+    // manage the minting interval to avoid front-run exploiters
+    function adminSetMintingInterval(uint8 _min_index, uint8 _max_index) external onlyOwner {
+        min_index = _min_index;
+        max_index = _max_index;
     }
 
     modifier mintingManagers(){
