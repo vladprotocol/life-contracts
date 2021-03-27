@@ -37,22 +37,22 @@ contract NftFarm is Ownable {
     uint8 public numberOfNftIds;
 
     // on marketplace bootstrap and not changeable anymore.
-    bool allowMultipleClaims; // test ok
+    bool public allowMultipleClaims; // test ok
 
     // price management
-    mapping(uint8 => uint256) price_by_nftId; // test ok
+    mapping(uint8 => uint256) public price_by_nftId; // test ok
 
     // for multipe minting
-    uint256 priceMultiplier; // test ok
+    uint256 public priceMultiplier; // test ok
 
     // minting and management
 
     // can manage price and limits
-    mapping(address => bool) mintingManager;
-    mapping(uint8 => uint256) mint_by_nftId; // test ok
+    mapping(address => bool) public mintingManager;
+    mapping(uint8 => uint256) public mint_by_nftId; // test ok
 
     // set the max minting per nft
-    uint256 maxMintPerNft; // test ok
+    uint256 public maxMintPerNft; // test ok
 
     event NftMint(address indexed to, uint256 indexed tokenId, uint8 indexed nftId, uint256 amount, uint256 price);
     event NftBurn(address indexed from, uint256 indexed tokenId);
@@ -100,14 +100,19 @@ contract NftFarm is Ownable {
         uint256[] memory prices = new uint256[](length);
         for (uint256 index = 0; index < length; ++index) {
             uint8 nftId = minted[index];
-            mintedAmounts[index] = hasClaimed[nftId];
             lastOwner[index] = lastOwners[nftId];
-            maxMintByNft[index] = mint_by_nftId[nftId];
+            maxMintByNft[index] = getMaxMint(nftId);
             prices[index] = getPrice(nftId);
+            mintedAmounts[index] = hasClaimed[nftId];
         }
         return (minted, mintedAmounts, lastOwner, maxMintByNft, prices);
     }
-
+    function getMaxMint( uint8 _nftId ) public view returns (uint256) {
+        if( mint_by_nftId[_nftId] == 0 ){
+            return maxMintPerNft;
+        }
+        return mint_by_nftId[_nftId];
+    }
     function mintNFT(uint8 _nftId) external {
 
         require(allowMultipleClaims == true || hasClaimed[_nftId] == 0, "Has claimed");
@@ -115,25 +120,24 @@ contract NftFarm is Ownable {
         require(startBlockNumber == 0 || block.number > startBlockNumber, "Too early");
         require(endBlockNumber == 0 || block.number < endBlockNumber, "Too late");
 
+        // here we control collections
+        require(totalSupplyDistributed == 0 || currentDistributedSupply < totalSupplyDistributed, "Nothing left");
+        currentDistributedSupply = currentDistributedSupply.add(1);
+
         if( hasClaimed[_nftId] == 0 ){
-
-            // here we control collections
-            require(totalSupplyDistributed == 0 || currentDistributedSupply < totalSupplyDistributed, "Nothing left");
-            currentDistributedSupply = currentDistributedSupply.add(1);
-
             minted.push(_nftId);
             nft.setNftName(_nftId, rarity);
-
         }
 
         hasClaimed[_nftId] = hasClaimed[_nftId].add(1);
         lastOwners[_nftId] = msg.sender;
 
-        require( maxMintPerNft==0 || hasClaimed[_nftId] <= maxMintPerNft, "Max minting reached");
-
-        require( mint_by_nftId[_nftId] == 0 ||
-                 hasClaimed[_nftId] <= mint_by_nftId[_nftId],
-                 "Max minting by NFT reached");
+        if( mint_by_nftId[_nftId] == 0 ){
+            require( maxMintPerNft==0 || hasClaimed[_nftId] <= maxMintPerNft, "Max minting reached");
+        }else{
+            require( hasClaimed[_nftId] <= mint_by_nftId[_nftId],
+                "Max minting by NFT reached");
+        }
 
         address[] storage _ownersOf = ownersOf[_nftId];
         _ownersOf.push( msg.sender );
