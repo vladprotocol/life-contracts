@@ -384,14 +384,14 @@ describe('NftMinting', function () {
     describe('NFT MINTING INTERVAL', function () {
         it('TEST MINTING LIMITS', async function () {
             await this.NftFarm.adminSetMaxMintPerNft(3, {from: _deployer});
-            await this.NftFarm.adminSetMintingInterval(0, 3, {from: _deployer});
+            await this.NftFarm.adminSetMintingInterval(0, 2, {from: _deployer});
 
             await this.Token.approve(this.NftFarm.address, supply, {from: _deployer});
 
             await this.NftFarm.mintNFT(0, {from: _deployer});
             await this.NftFarm.mintNFT(1, {from: _deployer});
             await this.NftFarm.mintNFT(2, {from: _deployer});
-            await expectRevert(this.NftFarm.mintNFT(4, {from: _deployer}),"Out of minting interval");
+            await expectRevert(this.NftFarm.mintNFT(3, {from: _deployer}),"Out of minting interval");
 
         });
     });
