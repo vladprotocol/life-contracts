@@ -41,6 +41,7 @@ contract NftFarm is Ownable {
 
     // price management
     mapping(uint8 => uint256) public price_by_nftId; // test ok
+    mapping(uint8 => uint256) public multiplier_by_nftId; //
 
     // for multipe minting
     uint256 public priceMultiplier; // test ok
@@ -94,6 +95,11 @@ contract NftFarm is Ownable {
 
         min_index = _min_index;
         max_index = _max_index;
+
+        require(tokenPerBurn > 0, "price must be greater than 0");
+        require(totalSupplyDistributed >0, "must be greater than 0");
+        require(min_index < max_index && max_index > 0, "invalid min max");
+
     }
 
     function getOwnersOf( uint8 _nftId ) external view returns (address[] memory){
@@ -105,19 +111,23 @@ contract NftFarm is Ownable {
 
     function getMinted( address _user ) external view returns
     (uint8[] memory, uint256[] memory, address[] memory, uint256[] memory, uint256[] memory, uint256[] memory){
-        uint256 length = minted.length;
-        uint256[] memory mintedAmounts = new uint256[](length);
-        address[] memory lastOwner = new address[](length);
-        uint256[] memory maxMintByNft = new uint256[](length);
-        uint256[] memory prices = new uint256[](length);
-        uint256[] memory myMints = new uint256[](length);
-        for (uint256 index = 0; index < length; ++index) {
+        uint256 total = minted.length;
+        uint256[] memory mintedAmounts = new uint256[](total);
+        address[] memory lastOwner = new address[](total);
+        uint256[] memory myMints = new uint256[](total);
+
+        for (uint256 index = 0; index < total; ++index) {
             uint8 nftId = minted[index];
             lastOwner[index] = lastOwners[nftId];
-            maxMintByNft[index] = getMaxMint(nftId);
-            prices[index] = getPrice(nftId);
             mintedAmounts[index] = hasClaimed[nftId];
             myMints[index] = getMintsOf(_user, nftId);
+        }
+
+        uint256[] memory maxMintByNft = new uint256[](max_index);
+        uint256[] memory prices = new uint256[](max_index);
+        for (uint8 index = 0; index < max_index; ++index) {
+            maxMintByNft[index] = getMaxMint(index);
+            prices[index] = getPrice(index, index);
         }
         return (minted, mintedAmounts, lastOwner, maxMintByNft, prices, myMints);
     }
@@ -151,6 +161,8 @@ contract NftFarm is Ownable {
         require(totalSupplyDistributed == 0 || currentDistributedSupply < totalSupplyDistributed, "Nothing left");
         currentDistributedSupply = currentDistributedSupply.add(1);
 
+        uint256 price = getPrice(_nftId, hasClaimed[_nftId] );
+
         if( hasClaimed[_nftId] == 0 ){
             minted.push(_nftId);
             nft.setNftName(_nftId, rarity);
@@ -175,7 +187,6 @@ contract NftFarm is Ownable {
         nftIdURIs[_nftId] = tokenURI;
         uint256 tokenId = nft.mint(address(msg.sender), tokenURI, _nftId);
 
-        uint256 price = getPrice(_nftId);
         // send LIFE to DEAD address, effectively burning it.
         token.safeTransferFrom(address(msg.sender), BURN_LIFE, price);
         emit NftMint(msg.sender, tokenId, _nftId, hasClaimed[_nftId], price );
@@ -199,6 +210,7 @@ contract NftFarm is Ownable {
     }
 
     function adminSetTotalSupply(uint256 _totalSupplyDistributed) external onlyOwner {
+        require(totalSupplyDistributed >= currentDistributedSupply, "must be more than minted");
         totalSupplyDistributed = _totalSupplyDistributed;
     }
 
@@ -224,7 +236,7 @@ contract NftFarm is Ownable {
     }
 
 
-    function getPrice( uint8 _nftId ) public view returns (uint256){
+    function getPrice( uint8 _nftId, uint256 _amount ) public view returns (uint256){
 
         // default: return the global price
         uint256 price = tokenPerBurn;
@@ -233,14 +245,25 @@ contract NftFarm is Ownable {
         if( price_by_nftId[_nftId] > 0 ){
             price = price_by_nftId[_nftId];
         }
-
-        // do we have a price multipler for multiple mintings?
-        if( priceMultiplier > 0 && hasClaimed[_nftId] > 0 ){
-            uint256 mintedAmount = hasClaimed[_nftId];
-            price = price.mul(mintedAmount).mul(priceMultiplier);
+        if( _amount == 0 ){
+            return price;
         }
-
+        if( multiplier_by_nftId[_nftId] > 0 ){
+            // price curve by m-dot :)
+            uint256 f = multiplier_by_nftId[_nftId];
+            for( uint256 i = 1; i < _amount ; ++i ){
+                price = price.mul(f).div(1000000);
+            }
+            return price;
+        }else if( priceMultiplier > 0 ){
+            return price.mul(priceMultiplier).div(1000000);
+        }
         return price;
+    }
+
+    // set the price mul for a specific nft
+    function adminSetPriceMultiplierByNftId(uint8 _nftId, uint256 _mul) external mintingManagers {
+        multiplier_by_nftId[_nftId] = _mul;
     }
 
     // set the price for a specific nft
@@ -275,6 +298,8 @@ contract NftFarm is Ownable {
 
     // manage the minting interval to avoid front-run exploiters
     function adminSetMintingInterval(uint8 _min_index, uint8 _max_index) external onlyOwner {
+        require(_max_index <= totalSupplyDistributed, "max must be max <= total allowed");
+        require(_min_index < _max_index, "wrong min");
         min_index = _min_index;
         max_index = _max_index;
     }

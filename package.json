@@ -12,7 +12,7 @@
     "test": "truffle test test/pool.test.js --network dev --bail",
     "test-nft": "truffle test test/NftMinting.test.js --show-events --network dev --bail",
     "live": "nodemon --exec yarn test -e sol,js",
-    "live-nft": "nodemon --exec yarn test-nft -e sol,js"
+    "live-nft": "truffle migrate --network dev --f 4 --to 4 && nodemon --exec yarn test-nft -e sol,js"
   },
   "devDependencies": {
     "@openzeppelin/contracts": "^3.1.0",
