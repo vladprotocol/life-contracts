@@ -432,9 +432,10 @@ describe('NftMinting', function () {
             await this.NftFarm.adminSetPriceMultiplierByNftId(0, MULTIPLIER, {from: _deployer});
             await this.NftFarm.adminSetPriceByNftId(0, priceNft0, {from: _deployer});
 
-            expect('350.00').to.be.bignumber.equal(parseFloat(web3.utils.fromWei((await this.NftFarm.getPrice(0, 1, {from: _deployer})).toString())).toFixed(2));
-            expect('355.70').to.be.bignumber.equal(parseFloat(web3.utils.fromWei((await this.NftFarm.getPrice(0, 2, {from: _deployer})).toString())).toFixed(2));
-            expect('361.49').to.be.bignumber.equal(parseFloat(web3.utils.fromWei((await this.NftFarm.getPrice(0, 3, {from: _deployer})).toString())).toFixed(2));
+            expect('350.00').to.be.bignumber.equal(parseFloat(web3.utils.fromWei((await this.NftFarm.getPrice(0, 0, {from: _deployer})).toString())).toFixed(2));
+            expect('355.70').to.be.bignumber.equal(parseFloat(web3.utils.fromWei((await this.NftFarm.getPrice(0, 1, {from: _deployer})).toString())).toFixed(2));
+            expect('361.49').to.be.bignumber.equal(parseFloat(web3.utils.fromWei((await this.NftFarm.getPrice(0, 2, {from: _deployer})).toString())).toFixed(2));
+            expect('367.38').to.be.bignumber.equal(parseFloat(web3.utils.fromWei((await this.NftFarm.getPrice(0, 3, {from: _deployer})).toString())).toFixed(2));
 
 
             expect(await this.NftFarm.getPrice(1, 1, {from: _deployer})).to.be.bignumber.equal(priceNft0);

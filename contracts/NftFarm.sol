@@ -250,9 +250,8 @@ contract NftFarm is Ownable {
         }
         if( multiplier_by_nftId[_nftId] > 0 ){
             // price curve by m-dot :)
-            uint256 f = multiplier_by_nftId[_nftId];
-            for( uint256 i = 1; i < _amount ; ++i ){
-                price = price.mul(f).div(1000000);
+            for( uint256 i = 0; i < _amount ; ++i ){
+                price = price.mul( multiplier_by_nftId[_nftId] ).div(1000000);
             }
             return price;
         }else if( priceMultiplier > 0 ){
