@@ -181,8 +181,6 @@ contract NftFarm is Ownable {
         address[] storage _ownersOf = ownersOf[_nftId];
         _ownersOf.push( msg.sender );
 
-
-
         string memory tokenURI = string(abi.encodePacked(ipfsHash, "/", itod(_nftId), ".json"));
         nftIdURIs[_nftId] = tokenURI;
         uint256 tokenId = nft.mint(address(msg.sender), tokenURI, _nftId);
