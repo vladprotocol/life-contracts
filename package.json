@@ -11,8 +11,9 @@
     "mainnet": "truffle migrate --network mainnet --reset && truffle run verify LifeToken MasterChefV2 --network mainnet",
     "test": "truffle test test/pool.test.js --network dev --bail",
     "test-nft": "truffle test test/NftMinting.test.js --show-events --network dev --bail",
+    "test-smart": "truffle test test/smartpool.test.js --show-events --network dev --bail",
     "live": "nodemon --exec yarn test -e sol,js",
-    "live-nft": "truffle migrate --network dev --f 4 --to 4 && nodemon --exec yarn test-nft -e sol,js"
+    "live-nft": "truffle migrate --network dev --f 5 --to 5 && nodemon --exec yarn test-nft -e sol,js"
   },
   "devDependencies": {
     "@openzeppelin/contracts": "^3.1.0",
